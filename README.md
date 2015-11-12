@@ -1,0 +1,1 @@
+Java comparator class for comparing text strings in a locale dependent, "natural" rather than alphabetical way.
