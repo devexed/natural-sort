@@ -21,9 +21,17 @@ import java.util.regex.Pattern;
  */
 public final class NaturalOrderComparator implements Comparator<String> {
 
+    private static Collator createDefaultCollator(Locale locale) {
+        // Secondary strength collator which typically compares case-insensitively.
+        Collator textCollator = Collator.getInstance(locale);
+        textCollator.setStrength(Collator.SECONDARY);
+        textCollator.setDecomposition(Collator.NO_DECOMPOSITION);
+        return textCollator;
+    }
+
     private static final Pattern whitespaceTrimmer = Pattern.compile("\\s+");
 
-    private final Locale locale;
+    private final Collator textCollator;
     private final Pattern decimalPatten;
     private final Pattern decimalChunkPatten;
     private final DecimalFormat decimalFormat;
@@ -33,7 +41,11 @@ public final class NaturalOrderComparator implements Comparator<String> {
     }
 
     public NaturalOrderComparator(Locale locale) {
-        this.locale = locale;
+        this(locale, createDefaultCollator(locale));
+    }
+
+    public NaturalOrderComparator(Locale locale, Collator textCollator) {
+        this.textCollator = textCollator;
 
         // Relevant number symbols coerced to non-null strings.
         DecimalFormatSymbols symbols = new DecimalFormatSymbols(locale);
@@ -71,34 +83,28 @@ public final class NaturalOrderComparator implements Comparator<String> {
     }
 
     /**
-     * <p>Normalize a string according to this comparators rules. Will create a more general form of the string that can
-     * be used for first pass lookups, restricting the set of values that need to be compared for equality by the
-     * {@link #compare} method.</p>
-     * <p>If <code>compare(a, b) == 0</code> then <code>normalizeForLookup(a).equals(normalizeForLookup(b)) == true</code></p>
-     * <p>For example, in the english locale, it transforms:</p>
-     * <ul>
-     *     <li><code>"Abc DEF &nbsp;\t&nbsp; 1,123.444 &nbsp; \t\n &nbsp;Text"</code> into <code>"abc def text"</code></li>
-     *     <li><code>"\t\t1213\n"</code> into <code>""</code></li>
-     * </ul>
+     * <p>Normalize a string according to this comparators rules. Will create key from the string that can be used for
+     * first pass lookups, restricting the set of values that need to be compared for equality by the {@link #compare}
+     * method.</p>
+     * <p>If <code>compare(a, b) == 0</code> then <code>normalizeForLookup(a).equals(normalizeForLookup(b)) ==
+     * true</code></p>
      *
      * @param text The text to normalize.
-     * @return The normalized text.
+     * @return The key in byte array form.
      */
-    public String normalizeForLookup(String text) {
+    public byte[] normalizeForLookup(String text) {
         // Remove numbers.
         text = decimalPatten.matcher(text).replaceAll("");
 
         // Strip whitespace.
         text = whitespaceTrimmer.matcher(text).replaceAll(" ").trim();
 
-        // Make lower case according to collator.
-        text = text.toLowerCase(locale);
-
-        return text;
+        // Return the bytes of the collation key.
+        return textCollator.getCollationKey(text).toByteArray();
     }
 
     private int compareText(String lhs, String rhs) {
-        return lhs.toLowerCase(locale).compareTo(rhs.toLowerCase(locale));
+        return textCollator.compare(lhs, rhs);
     }
 
     @Override
@@ -120,7 +126,6 @@ public final class NaturalOrderComparator implements Comparator<String> {
             String rt = rm.group(1);
             String ltd = lm.group(2);
             String rtd = rm.group(2);
-            System.out.println(lt + " " + rt + ", " + ltd + ", " + rtd);
 
             // Compare prefix text part of match.
             int textCompare = compareText(lt, rt);
