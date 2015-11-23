@@ -7,17 +7,19 @@ List<String> humbugs = Arrays.asList(
   "humbug 11",
   "humbug 12");
   
-// Default, alphabetical, sorting of strings. Yields:
-// humbug 1
-// humbug 11
-// humbug 12
-// humbug 2
+// Default, alphabetical, sorting of strings.
 Collections.sort(humbugs);
+// Yields:
+// humbug 1
+// humbug 11
+// humbug 12
+// humbug 2
 
-// Natural order sorting of strings (for the default locale). Yields:
+// Natural order sorting of strings (for the default locale).
+Collections.sort(humbugs, new NaturalOrderComparator());
+// Yields:
 // humbug 1
 // humbug 2
 // humbug 11
 // humbug 12
-Collections.sort(humbugs, new NaturalOrderComparator());
 ```
