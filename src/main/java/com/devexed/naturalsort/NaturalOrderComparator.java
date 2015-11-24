@@ -1,6 +1,8 @@
-package com.devexed.naturalordercomparator;
+package com.devexed.naturalsort;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.text.Collator;
 import java.text.DecimalFormat;
@@ -28,27 +30,22 @@ public final class NaturalOrderComparator implements Comparator<String> {
         return textCollator;
     }
 
-    private static byte[] normalizeBigDecimal(BigDecimal number) {
-        long doubleBits = Double.doubleToLongBits(number.doubleValue());
-
-        return new byte[] {
-                (byte) (doubleBits >> 56),
-                (byte) (doubleBits >> 48),
-                (byte) (doubleBits >> 40),
-                (byte) (doubleBits >> 32),
-                (byte) (doubleBits >> 24),
-                (byte) (doubleBits >> 16),
-                (byte) (doubleBits >> 8),
-                (byte) doubleBits
-        };
+    private static void writeDouble(OutputStream os, double number) throws IOException {
+        long doubleBits = Double.doubleToLongBits(number);
+        os.write((byte) (doubleBits >> 56));
+        os.write((byte) (doubleBits >> 48));
+        os.write((byte) (doubleBits >> 40));
+        os.write((byte) (doubleBits >> 32));
+        os.write((byte) (doubleBits >> 24));
+        os.write((byte) (doubleBits >> 16));
+        os.write((byte) (doubleBits >> 8));
+        os.write((byte) doubleBits);
     }
-
     // Unicode whitespace and digit matching.
     private static final String digitPatternString = "\\p{Nd}";
     private static final String whitespacePatternString = "[\\u0009-\\u000D\\u0020\\u0085\\u00A0\\u1680\\u180E\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+";
     private static final Pattern whitespacePattern = Pattern.compile(whitespacePatternString);
     private static final char whitespaceReplacement = ' ';
-
     private final Collator textCollator;
     private final Pattern decimalChunkPatten;
     private final DecimalFormat decimalFormat;
@@ -129,31 +126,32 @@ public final class NaturalOrderComparator implements Comparator<String> {
     public byte[] normalizeForLookup(String text) {
         // Normalize tet and number parts separately and append to byte array.
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        Matcher m = decimalChunkPatten.matcher(text);
-        int e = 0;
+        Matcher matcher = decimalChunkPatten.matcher(text);
+        int end = 0;
 
-        while (m.find()) {
-            String t = m.group(1);
-            String td = m.group(2);
+        while (matcher.find()) {
+            String textPart = matcher.group(1);
+            String decimalPart = matcher.group(2);
 
-            byte[] tb = textCollator.getCollationKey(t).toByteArray();
+            byte[] tb = textCollator.getCollationKey(textPart).toByteArray();
             bytes.write(tb, 0, tb.length);
 
             try {
-                // Parse numbers as big decimal and compare.
-                BigDecimal d = (BigDecimal) decimalFormat.parse(td);
-                byte[] db = normalizeBigDecimal(d);
-                bytes.write(db, 0, db.length);
-            } catch (ParseException ex) {
-                // Ignorable barring some bug in the Java implementation.
-                throw new RuntimeException(ex);
+                // Parse numbers as big decimal and write normalized bytes.
+                BigDecimal decimal = (BigDecimal) decimalFormat.parse(decimalPart);
+                writeDouble(bytes, decimal.doubleValue());
+            } catch (ParseException e) {
+                // Should be ignorable barring some bug in DecimalFormat's implementation.
+                throw new RuntimeException(e);
+            } catch (IOException e) {
+                // ByteArrayOutputStream never throws IOException.
             }
 
-            e = m.end();
+            end = matcher.end();
         }
 
         // Add final text segment.
-        byte[] tb = textCollator.getCollationKey(text.substring(e)).toByteArray();
+        byte[] tb = textCollator.getCollationKey(text.substring(end)).toByteArray();
         bytes.write(tb, 0, tb.length);
 
         return bytes.toByteArray();
@@ -162,41 +160,41 @@ public final class NaturalOrderComparator implements Comparator<String> {
     @Override
     public int compare(String lhs, String rhs) {
         // Match strings against number pattern and compare the segments in each string one by one.
-        Matcher lm = decimalChunkPatten.matcher(lhs);
-        Matcher rm = decimalChunkPatten.matcher(rhs);
+        Matcher lhsMatcher = decimalChunkPatten.matcher(lhs);
+        Matcher rhsMatcher = decimalChunkPatten.matcher(rhs);
 
         // Start indexes of final non-number segment. For comparing the last text part of the strings.
-        int le = 0;
-        int re = 0;
+        int lhsEnd = 0;
+        int rhsEnd = 0;
 
-        while (lm.find() && rm.find()) {
-            String lt = lm.group(1);
-            String rt = rm.group(1);
-            String ltd = lm.group(2);
-            String rtd = rm.group(2);
+        while (lhsMatcher.find() && rhsMatcher.find()) {
+            String lhsTextPart = lhsMatcher.group(1);
+            String rhsTextPart = rhsMatcher.group(1);
+            String lhsNumberPart = lhsMatcher.group(2);
+            String rhsNumberPart = rhsMatcher.group(2);
 
             // Compare prefix text part of match.
-            int textCompare = compareText(lt, rt);
+            int textCompare = compareText(lhsTextPart, rhsTextPart);
             if (textCompare != 0) return textCompare;
 
             try {
                 // Parse numbers as big decimal and compare.
-                BigDecimal ld = (BigDecimal) decimalFormat.parse(ltd);
-                BigDecimal rd = (BigDecimal) decimalFormat.parse(rtd);
+                BigDecimal lhsDecimal = (BigDecimal) decimalFormat.parse(lhsNumberPart);
+                BigDecimal rhsDecimal = (BigDecimal) decimalFormat.parse(rhsNumberPart);
 
-                int numberCompare = ld.compareTo(rd);
+                int numberCompare = lhsDecimal.compareTo(rhsDecimal);
                 if (numberCompare != 0) return numberCompare;
             } catch (ParseException ex) {
-                // Ignorable barring some bug in the Java implementation.
+                // Should be ignorable barring some bug in DecimalFormat's implementation.
                 throw new RuntimeException(ex);
             }
 
-            le = lm.end();
-            re = rm.end();
+            lhsEnd = lhsMatcher.end();
+            rhsEnd = rhsMatcher.end();
         }
 
-        // Compare final text segment.
-        return compareText(lhs.substring(le), rhs.substring(re));
+        // Compare final segment where one or both of lhs or rhs have no number part.
+        return compareText(lhs.substring(lhsEnd), rhs.substring(rhsEnd));
     }
 
 }

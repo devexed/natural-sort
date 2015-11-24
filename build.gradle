@@ -1,10 +1,11 @@
 apply plugin: 'java'
 apply plugin: 'maven-publish'
 
+// For compatibility
 sourceCompatibility = 1.6
 targetCompatibility = 1.6
 
-group 'com.devexed.naturalordercompare'
+group 'com.devexed.naturalsort'
 version '1.0'
 
 repositories {

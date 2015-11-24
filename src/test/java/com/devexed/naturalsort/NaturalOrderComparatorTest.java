@@ -1,4 +1,4 @@
-package com.devexed.naturalordercomparator;
+package com.devexed.naturalsort;
 
 import junit.framework.TestCase;
 
@@ -9,7 +9,6 @@ import java.util.Locale;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.*;
-import static org.hamcrest.number.OrderingComparison.comparesEqualTo;
 
 public class NaturalOrderComparatorTest extends TestCase {
 
@@ -18,12 +17,6 @@ public class NaturalOrderComparatorTest extends TestCase {
         format.setDecimalFormatSymbols(new DecimalFormatSymbols(locale));
         format.applyPattern("#,#00.#####");
         format.setParseBigDecimal(true);
-
-        /*try {
-            System.out.println(locale + ": " + number + ": " + format.parse(format.format(number)));
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }*/
 
         return format.format(number);
     }
