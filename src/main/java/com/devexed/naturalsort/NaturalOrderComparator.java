@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
  * than digit by digit. Additionally merges whitespace in text and ignores any whitespace around numbers for even more
  * human friendliness.</p>
  */
-public final class NaturalOrderComparator implements Comparator<String> {
+public final class NaturalOrderComparator<T extends CharSequence> implements Comparator<T> {
 
     private static Collator createDefaultCollator(Locale locale) {
         // Secondary strength collator which typically compares case-insensitively.
@@ -41,11 +41,28 @@ public final class NaturalOrderComparator implements Comparator<String> {
         os.write((byte) (doubleBits >> 8));
         os.write((byte) doubleBits);
     }
+
+    private static CharSequence trimText(CharSequence chars) {
+        // Collapse whitespace.
+        String text = whitespacePattern.matcher(chars).replaceAll(whitespaceReplacementString);
+
+        // Trim start whitespace.
+        if (!text.isEmpty() && text.charAt(0) == whitespaceReplacement) text = text.substring(1);
+
+        // Trim end whitespace.
+        if (!text.isEmpty() && text.charAt(text.length() - 1) == whitespaceReplacement)
+            text = text.substring(0, text.length() - 1);
+
+        return text;
+    }
+
     // Unicode whitespace and digit matching.
     private static final String digitPatternString = "\\p{Nd}";
     private static final String whitespacePatternString = "[\\u0009-\\u000D\\u0020\\u0085\\u00A0\\u1680\\u180E\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+";
     private static final Pattern whitespacePattern = Pattern.compile(whitespacePatternString);
     private static final char whitespaceReplacement = ' ';
+    private static final String whitespaceReplacementString = "" + whitespaceReplacement;
+
     private final Collator textCollator;
     private final Pattern decimalChunkPatten;
     private final DecimalFormat decimalFormat;
@@ -93,21 +110,7 @@ public final class NaturalOrderComparator implements Comparator<String> {
         decimalFormat.setParseBigDecimal(true);
     }
 
-    private String trimText(String text) {
-        // Collapse whitespace.
-        text = whitespacePattern.matcher(text).replaceAll("" + whitespaceReplacement);
-
-        // Trim start whitespace.
-        if (!text.isEmpty() && text.charAt(0) == whitespaceReplacement) text = text.substring(1);
-
-        // Trim end whitespace.
-        if (!text.isEmpty() && text.charAt(text.length() - 1) == whitespaceReplacement)
-            text = text.substring(0, text.length() - 1);
-
-        return text;
-    }
-
-    private int compareText(String lhs, String rhs) {
+    private int compareText(CharSequence lhs, CharSequence rhs) {
         return textCollator.compare(trimText(lhs), trimText(rhs));
     }
 
@@ -158,7 +161,7 @@ public final class NaturalOrderComparator implements Comparator<String> {
     }
 
     @Override
-    public int compare(String lhs, String rhs) {
+    public int compare(T lhs, T rhs) {
         // Match strings against number pattern and compare the segments in each string one by one.
         Matcher lhsMatcher = decimalChunkPatten.matcher(lhs);
         Matcher rhsMatcher = decimalChunkPatten.matcher(rhs);
@@ -194,7 +197,7 @@ public final class NaturalOrderComparator implements Comparator<String> {
         }
 
         // Compare final segment where one or both of lhs or rhs have no number part.
-        return compareText(lhs.substring(lhsEnd), rhs.substring(rhsEnd));
+        return compareText(lhs.subSequence(lhsEnd, lhs.length()), rhs.subSequence(rhsEnd, rhs.length()));
     }
 
 }
