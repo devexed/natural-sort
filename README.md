@@ -16,7 +16,7 @@ Collections.sort(humbugs);
 // humbug 2
 
 // Natural order sorting of strings (for the default locale).
-Collections.sort(humbugs, new NaturalOrderComparator());
+Collections.sort(humbugs, new NaturalOrderComparator<String>());
 // Yields:
 // humbug 1
 // humbug 2
