@@ -68,8 +68,8 @@ public class NaturalOrderComparatorTest extends TestCase {
             String n = formatDouble(locale, randomNumber(-million, million));
             NaturalOrderComparator<String> comp = new NaturalOrderComparator<String>(locale);
 
-            byte[] keyA = comp.normalizeForLookup("abc ".toUpperCase(locale) + n + " hsd".toLowerCase(locale));
-            byte[] keyB = comp.normalizeForLookup("abc ".toLowerCase(locale) + n + " hsd".toUpperCase(locale));
+            byte[] keyA = comp.normalizeForLookup("   abc    ".toUpperCase(locale) + n + " hsd".toLowerCase(locale));
+            byte[] keyB = comp.normalizeForLookup("abc ".toLowerCase(locale) + n + " hsd   ".toUpperCase(locale));
 
             assertThat(keyA, is(keyB));
         }

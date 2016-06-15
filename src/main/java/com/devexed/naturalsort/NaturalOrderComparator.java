@@ -42,7 +42,7 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
         os.write((byte) doubleBits);
     }
 
-    private static CharSequence trimText(CharSequence chars) {
+    private static String trimText(CharSequence chars) {
         // Collapse whitespace.
         String text = whitespacePattern.matcher(chars).replaceAll(whitespaceReplacementString);
 
@@ -111,6 +111,7 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
     }
 
     private int compareText(CharSequence lhs, CharSequence rhs) {
+        // TODO Implement with single iteration of chars rather than trimming and then comparing.
         return textCollator.compare(trimText(lhs), trimText(rhs));
     }
 
@@ -136,7 +137,7 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
             String textPart = matcher.group(1);
             String decimalPart = matcher.group(2);
 
-            byte[] tb = textCollator.getCollationKey(textPart).toByteArray();
+            byte[] tb = textCollator.getCollationKey(trimText(textPart)).toByteArray();
             bytes.write(tb, 0, tb.length);
 
             try {
@@ -154,7 +155,8 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
         }
 
         // Add final text segment.
-        byte[] tb = textCollator.getCollationKey(text.substring(end)).toByteArray();
+        String endText = text.substring(end);
+        byte[] tb = textCollator.getCollationKey(trimText(endText)).toByteArray();
         bytes.write(tb, 0, tb.length);
 
         return bytes.toByteArray();
