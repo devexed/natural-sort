@@ -33,7 +33,7 @@ public class NaturalOrderComparatorTest extends TestCase {
         String as = "ab   c " + formatDouble(locale, a) + ";;234";
         String bs = "ab  c " +  formatDouble(locale, b) + ";;234   ";
 
-        NaturalOrderComparator<String> comp = new NaturalOrderComparator<String>(collator, new DecimalFormatSymbols(locale));
+        NaturalOrderComparator<String> comp = new NaturalOrderComparator<>(collator, new DecimalFormatSymbols(locale));
         int expectedResult = Double.compare(a, b);
         int compareResult = comp.compare(as, bs);
         assertThat(sign(compareResult), is(sign(expectedResult)));
@@ -52,26 +52,6 @@ public class NaturalOrderComparatorTest extends TestCase {
 
                 compareNumbers(locale, collator, a, b);
             }
-        }
-    }
-
-    public void testComparesNormalizedKeys() {
-        // Only test locales where changing case matches collation comparison.
-        for (Locale locale: new Locale[] {
-                Locale.ENGLISH,
-                Locale.GERMAN,
-                Locale.FRANCE,
-                Locale.CHINESE,
-                Locale.JAPAN
-        }) {
-            double million = 1000000;
-            String n = formatDouble(locale, randomNumber(-million, million));
-            NaturalOrderComparator<String> comp = new NaturalOrderComparator<String>(locale);
-
-            byte[] keyA = comp.normalizeForLookup("   abc    ".toUpperCase(locale) + n + " hsd".toLowerCase(locale));
-            byte[] keyB = comp.normalizeForLookup("abc ".toLowerCase(locale) + n + " hsd   ".toUpperCase(locale));
-
-            assertThat(keyA, is(keyB));
         }
     }
 
