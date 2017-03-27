@@ -5,6 +5,7 @@ import java.text.Collator;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.ParseException;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -97,6 +98,32 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
 
     private int compareText(CharSequence lhs, CharSequence rhs) {
         return textCollator.compare(trimText(lhs), trimText(rhs));
+    }
+
+    public String normalize(T text) {
+        StringBuilder normalizedText = new StringBuilder();
+        Matcher matcher = decimalChunkPatten.matcher(text);
+        int end = 0;
+
+        while (matcher.find()) {
+            String textPart = matcher.group(1);
+            String numberPart = matcher.group(2);
+            normalizedText.append(textPart);
+
+            try {
+                normalizedText.append(decimalFormat.parse(numberPart).toString());
+            } catch (ParseException ex) {
+                // Should be ignorable barring some bug in DecimalFormat's implementation.
+            }
+
+            end = matcher.end();
+        }
+
+        return normalizedText.append(text.subSequence(end, text.length())).toString();
+    }
+
+    public int normalizedKey(T text) {
+        return Arrays.hashCode(textCollator.getCollationKey(normalize(text)).toByteArray());
     }
 
     @Override

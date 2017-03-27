@@ -33,7 +33,7 @@ public class NaturalOrderComparatorTest extends TestCase {
         String as = "ab   c " + formatDouble(locale, a) + ";;234";
         String bs = "ab  c " +  formatDouble(locale, b) + ";;234   ";
 
-        NaturalOrderComparator<String> comp = new NaturalOrderComparator<>(collator, new DecimalFormatSymbols(locale));
+        NaturalOrderComparator<String> comp = new NaturalOrderComparator<String>(collator, new DecimalFormatSymbols(locale));
         int expectedResult = Double.compare(a, b);
         int compareResult = comp.compare(as, bs);
         assertThat(sign(compareResult), is(sign(expectedResult)));
@@ -53,6 +53,16 @@ public class NaturalOrderComparatorTest extends TestCase {
                 compareNumbers(locale, collator, a, b);
             }
         }
+    }
+
+    public void testNumbers() {
+        Collator collator = Collator.getInstance();
+        collator.setStrength(Collator.SECONDARY);
+        collator.setDecomposition(Collator.NO_DECOMPOSITION);
+        NaturalOrderComparator<String> comp = new NaturalOrderComparator<String>(collator, new DecimalFormatSymbols(Locale.ENGLISH));
+        double million = 1000000;
+        double a = randomNumber(0, million);
+        assertTrue(comp.compare(comp.normalize("ABC000" + a), comp.normalize("abc" + a)) == 0);
     }
 
 }
