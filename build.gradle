@@ -1,14 +1,8 @@
 apply plugin: 'java'
 apply plugin: 'maven-publish'
 
-// For maximum compatibility
-//noinspection GroovyUnusedAssignment
-sourceCompatibility = 1.6
-//noinspection GroovyUnusedAssignment
-targetCompatibility = 1.6
-
 group 'com.devexed.naturalsort'
-version '1.4'
+version '1.6'
 
 repositories {
     mavenCentral()

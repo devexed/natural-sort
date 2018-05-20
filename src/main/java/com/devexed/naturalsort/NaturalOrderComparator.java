@@ -108,14 +108,18 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
         while (matcher.find()) {
             String textPart = matcher.group(1);
             String numberPart = matcher.group(2);
-            normalizedText.append(textPart);
+            String numberNormalized;
 
             try {
-                normalizedText.append(decimalFormat.parse(numberPart).toString());
-            } catch (ParseException ex) {
-                // Should be ignorable barring some bug in DecimalFormat's implementation.
+                numberNormalized = decimalFormat.parse(numberPart).toString();
+            } catch (NumberFormatException | ParseException ex) {
+                // Should be ignorable barring some mismatch between DecimalFormat and the number regex.
+                // In which case we use the text value instead of the number value.
+                numberNormalized = numberPart;
             }
 
+            normalizedText.append(textPart);
+            normalizedText.append(numberNormalized);
             end = matcher.end();
         }
 
@@ -153,8 +157,11 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
 
                 int numberCompare = lhsDecimal.compareTo(rhsDecimal);
                 if (numberCompare != 0) return numberCompare;
-            } catch (ParseException ex) {
-                // Should be ignorable barring some bug in DecimalFormat's implementation.
+            } catch (NumberFormatException | ParseException ex) {
+                // Should be ignorable barring some mismatch between DecimalFormat and the number regex.
+                // In which case we compare the numbers as text.
+                int numberCompare = compareText(lhsNumberPart, rhsNumberPart);
+                if (numberCompare != 0) return numberCompare;
             }
 
             lhsEnd = lhsMatcher.end();
