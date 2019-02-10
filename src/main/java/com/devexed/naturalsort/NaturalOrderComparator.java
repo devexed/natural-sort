@@ -92,7 +92,7 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
         decimalChunkPatten = Pattern.compile(patternBuilder.toString());
 
         // Format to parse the numbers with three digits per group and a decimal part.
-        decimalFormat = new DecimalFormat("#,##0.#", symbols);
+        decimalFormat = new DecimalFormat("0.#", symbols);
         decimalFormat.setParseBigDecimal(true);
     }
 
