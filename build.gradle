@@ -2,7 +2,12 @@ apply plugin: 'java'
 apply plugin: 'maven-publish'
 
 group 'com.devexed.naturalsort'
-version '1.6'
+version '1.8'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 
 repositories {
     mavenCentral()
@@ -19,12 +24,10 @@ configurations {
 }
 
 task sourceJar(type: Jar) {
-    classifier "sources"
     from sourceSets.main.allJava
 }
 
 task testJar(type: Jar) {
-    classifier "tests"
     from sourceSets.test.output
 }
 
