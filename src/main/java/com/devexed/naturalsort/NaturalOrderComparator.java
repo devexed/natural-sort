@@ -28,29 +28,24 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
         return textCollator;
     }
 
-    private static String trimText(CharSequence chars) {
-        // Collapse whitespace.
-        String text = whitespacePattern.matcher(chars).replaceAll(whitespaceReplacementString);
+    private static String quoteAndGroup(String regex) {
+        return "(?:" + Pattern.quote(regex) + ")";
+    }
 
-        // Trim start whitespace.
-        if (!text.isEmpty() && text.charAt(0) == whitespaceReplacement) text = text.substring(1);
-
-        // Trim end whitespace.
-        if (!text.isEmpty() && text.charAt(text.length() - 1) == whitespaceReplacement)
-            text = text.substring(0, text.length() - 1);
-
-        return text;
+    private static boolean isWhitespace(char c) {
+        return Character.isWhitespace(c) || c == 160;
     }
 
     // Unicode whitespace and digit matching.
     private static final String digitPatternString = "\\p{Nd}";
-    private static final String whitespacePatternString = "[\\u0009-\\u000D\\u0020\\u0085\\u00A0\\u1680\\u180E\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]+";
-    private static final Pattern whitespacePattern = Pattern.compile(whitespacePatternString);
-    private static final char whitespaceReplacement = ' ';
-    private static final String whitespaceReplacementString = "" + whitespaceReplacement;
+    private static final String whitespacePatternString = "[\\s\\u00A0]";
 
     private final Collator textCollator;
     private final Pattern decimalChunkPatten;
+    private final Pattern minusCharPatten;
+    private final Pattern groupingCharPatten;
+    private final Pattern deicmalCharPatten;
+
     private final DecimalFormat decimalFormat;
 
     public NaturalOrderComparator() {
@@ -65,39 +60,48 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
         this.textCollator = textCollator;
 
         // Relevant number symbols coerced to non-null strings.
-        String minusSign = "" + symbols.getMinusSign();
-        String groupingSeparator = "" + symbols.getGroupingSeparator();
-        String decimalSeparator = "" + symbols.getDecimalSeparator();
+        char minusChar = symbols.getMinusSign();
+        char groupingChar = symbols.getGroupingSeparator();
+        char decimalChar = symbols.getDecimalSeparator();
+
+        // Relax regex to include more types of characters as separators
+        String minusSign =
+                Character.getType(minusChar) == Character.DASH_PUNCTUATION ||
+                minusChar == 0x2212 // math minus
+                        ? "\\p{Pd}"
+                        : quoteAndGroup("" + minusChar);
+        String groupingSeparator =
+                isWhitespace(groupingChar)
+                        ? whitespacePatternString
+                        : quoteAndGroup("" + groupingChar);
+        String decimalSeparator = quoteAndGroup("" + decimalChar);
+
+        minusCharPatten = Pattern.compile(minusSign);
+        groupingCharPatten = Pattern.compile(groupingSeparator);
+        deicmalCharPatten = Pattern.compile(decimalSeparator);
 
         // Pattern to match numbers in the string.
-        StringBuilder patternBuilder = new StringBuilder();
-        patternBuilder.append("(.*?)").append(whitespaceReplacement).append("*(");
+        String patternBuilder =
+                // Match first non-number part
+                "(" + whitespacePatternString + "*.*?" + whitespacePatternString + "*)" +
 
-        // Include negative numbers...
-        if (!minusSign.isEmpty()) patternBuilder.append(Pattern.quote(minusSign)).append("?");
+                "(" +
+                // Include negative numbers...
+                minusSign + "?" +
 
-        // Include grouped number part (e.g. 1,000,000,000)...
-        if (!groupingSeparator.isEmpty())
-            patternBuilder.append("(").append(digitPatternString).append("+")
-                    .append(Pattern.quote(groupingSeparator)).append(")*");
+                // Include grouped whole part (e.g. 1,000,000,000)...
+                "(?:" + digitPatternString + "+" + groupingSeparator + ")*" +
+                digitPatternString + "+" +
 
-        // Include integer number part...
-        patternBuilder.append(digitPatternString).append("+");
+                // Include decimal part...
+                "(?:" + decimalSeparator + digitPatternString + "+)?" +
 
-        // Include decimal part...
-        if (!decimalSeparator.isEmpty())
-            patternBuilder.append("(").append(Pattern.quote(decimalSeparator)).append(digitPatternString).append("+)?");
-
-        patternBuilder.append(")");
-        decimalChunkPatten = Pattern.compile(patternBuilder.toString());
+                ")";
+        decimalChunkPatten = Pattern.compile(patternBuilder);
 
         // Format to parse the numbers with three digits per group and a decimal part.
-        decimalFormat = new DecimalFormat("0.#", symbols);
+        decimalFormat = new DecimalFormat("0.#", new DecimalFormatSymbols(Locale.ENGLISH));
         decimalFormat.setParseBigDecimal(true);
-    }
-
-    private int compareText(CharSequence lhs, CharSequence rhs) {
-        return textCollator.compare(trimText(lhs), trimText(rhs));
     }
 
     public String normalize(T text) {
@@ -108,6 +112,9 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
         while (matcher.find()) {
             String textPart = matcher.group(1);
             String numberPart = matcher.group(2);
+            numberPart = minusCharPatten.matcher(numberPart).replaceAll("-");
+            numberPart = groupingCharPatten.matcher(numberPart).replaceAll("");
+            numberPart = deicmalCharPatten.matcher(numberPart).replaceAll(".");
             String numberNormalized;
 
             try {
@@ -144,10 +151,16 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
             String lhsTextPart = lhsMatcher.group(1);
             String rhsTextPart = rhsMatcher.group(1);
             String lhsNumberPart = lhsMatcher.group(2);
+            lhsNumberPart = minusCharPatten.matcher(lhsNumberPart).replaceAll("-");
+            lhsNumberPart = groupingCharPatten.matcher(lhsNumberPart).replaceAll("");
+            lhsNumberPart = deicmalCharPatten.matcher(lhsNumberPart).replaceAll(".");
             String rhsNumberPart = rhsMatcher.group(2);
+            rhsNumberPart = minusCharPatten.matcher(rhsNumberPart).replaceAll("-");
+            rhsNumberPart = groupingCharPatten.matcher(rhsNumberPart).replaceAll("");
+            rhsNumberPart = deicmalCharPatten.matcher(rhsNumberPart).replaceAll(".");
 
             // Compare prefix text part of match.
-            int textCompare = compareText(lhsTextPart, rhsTextPart);
+            int textCompare = textCollator.compare(lhsTextPart, rhsTextPart);
             if (textCompare != 0) return textCompare;
 
             try {
@@ -160,7 +173,7 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
             } catch (NumberFormatException | ParseException ex) {
                 // Should be ignorable barring some mismatch between DecimalFormat and the number regex.
                 // In which case we compare the numbers as text.
-                int numberCompare = compareText(lhsNumberPart, rhsNumberPart);
+                int numberCompare = textCollator.compare(lhsNumberPart, rhsNumberPart);
                 if (numberCompare != 0) return numberCompare;
             }
 
@@ -168,8 +181,17 @@ public final class NaturalOrderComparator<T extends CharSequence> implements Com
             rhsEnd = rhsMatcher.end();
         }
 
+        // Ignore whitespace on last compare
+        while (lhsEnd < lhs.length() && isWhitespace(lhs.charAt(lhsEnd))) {
+            lhsEnd++;
+        }
+
+        while (rhsEnd < rhs.length() && isWhitespace(rhs.charAt(rhsEnd))) {
+            rhsEnd++;
+        }
+
         // Compare final segment where one or both of lhs or rhs have no number part.
-        return compareText(lhs.subSequence(lhsEnd, lhs.length()), rhs.subSequence(rhsEnd, rhs.length()));
+        return textCollator.compare(lhs.subSequence(lhsEnd, lhs.length()), rhs.subSequence(rhsEnd, rhs.length()));
     }
 
 }
